@@ -4,6 +4,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from backend.services.job_matcher import analyze_match
 from backend.services.resume_parser import ALLOWED_EXTENSIONS, extract_resume_text
+from backend.services.roadmap import build_roadmap
 from backend.services.skill_extractor import extract_skills
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
@@ -12,7 +13,7 @@ MIN_JOB_DESCRIPTION_LENGTH = 30
 app = FastAPI(
     title="SkillMatrixAI",
     description="AI-powered Resume Analyzer and Skill Gap Analyzer",
-    version="0.2.0",
+    version="0.3.0",
 )
 
 
@@ -79,5 +80,6 @@ async def match_resume_to_job(
 
     filename, text = await read_resume(file)
     result = analyze_match(text, job_description)
+    roadmap = build_roadmap(result["missing_skills"])
 
-    return {"filename": filename, **result}
+    return {"filename": filename, **result, "roadmap": roadmap}

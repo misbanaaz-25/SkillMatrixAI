@@ -1,0 +1,102 @@
+{
+  "Python": {
+    "priority": 1,
+    "steps": [
+      "Beginner: syntax, data types, loops, functions",
+      "Intermediate: OOP, file handling, modules, virtual environments",
+      "Advanced: decorators, generators, async basics"
+    ],
+    "practice_project": "Build a command-line expense tracker that saves data to a file",
+    "resources": ["Official Python Tutorial (docs.python.org)", "Python Crash Course (book)"]
+  },
+  "Git": {
+    "priority": 1,
+    "steps": [
+      "Beginner: init, add, commit, status, log",
+      "Intermediate: branches, merge, pull requests",
+      "Advanced: rebase, resolving conflicts, clean commit history"
+    ],
+    "practice_project": "Put one of your projects on GitHub using feature branches and pull requests",
+    "resources": ["Pro Git book (free online)", "GitHub Docs"]
+  },
+  "SQL": {
+    "priority": 2,
+    "steps": [
+      "Beginner: SELECT, WHERE, ORDER BY, GROUP BY",
+      "Intermediate: JOINs, subqueries, indexes",
+      "Advanced: query optimization, transactions, database design"
+    ],
+    "practice_project": "Design a small library database and write queries for common reports",
+    "resources": ["SQLBolt (interactive)", "PostgreSQL official documentation"]
+  },
+  "REST API": {
+    "priority": 2,
+    "steps": [
+      "Beginner: HTTP methods, status codes, JSON",
+      "Intermediate: designing endpoints, validation, error handling",
+      "Advanced: authentication, pagination, versioning"
+    ],
+    "practice_project": "Build a CRUD API for notes or tasks and test it with Postman",
+    "resources": ["MDN Web Docs: HTTP", "Postman Learning Center"]
+  },
+  "FastAPI": {
+    "priority": 3,
+    "steps": [
+      "Beginner: routes, path and query parameters",
+      "Intermediate: Pydantic models, file upload, dependency injection",
+      "Advanced: authentication, database integration, background tasks"
+    ],
+    "practice_project": "Build a to-do API with FastAPI and a SQLite database",
+    "resources": ["FastAPI official tutorial (fastapi.tiangolo.com)"]
+  },
+  "Testing": {
+    "priority": 3,
+    "steps": [
+      "Beginner: write simple assert-based tests with pytest",
+      "Intermediate: fixtures, parametrized tests, mocking",
+      "Advanced: API testing, coverage reports, CI integration"
+    ],
+    "practice_project": "Write tests for the endpoints of this SkillMatrixAI backend",
+    "resources": ["pytest official documentation"]
+  },
+  "Docker": {
+    "priority": 4,
+    "steps": [
+      "Beginner: images, containers, basic commands",
+      "Intermediate: writing a Dockerfile, volumes, ports",
+      "Advanced: docker-compose, multi-stage builds"
+    ],
+    "practice_project": "Containerize a FastAPI app with a Dockerfile",
+    "resources": ["Docker official Get Started guide"]
+  },
+  "AWS": {
+    "priority": 5,
+    "steps": [
+      "Beginner: cloud basics, IAM, EC2, S3",
+      "Intermediate: deploying a web app, RDS, security groups",
+      "Advanced: Lambda, monitoring, cost management"
+    ],
+    "practice_project": "Deploy a small web app on AWS free tier",
+    "resources": ["AWS Skill Builder (free tier courses)", "AWS Documentation"]
+  },
+  "React": {
+    "priority": 3,
+    "steps": [
+      "Beginner: components, props, JSX",
+      "Intermediate: state, hooks, routing, API calls",
+      "Advanced: performance, context, custom hooks"
+    ],
+    "practice_project": "Build a dashboard that fetches and shows data from an API",
+    "resources": ["React official documentation (react.dev)"]
+  },
+  "Machine Learning": {
+    "priority": 4,
+    "steps": [
+      "Beginner: NumPy, Pandas, basic statistics",
+      "Intermediate: supervised learning with scikit-learn, model evaluation",
+      "Advanced: feature engineering, hyperparameter tuning, deployment"
+    ],
+    "practice_project": "Predict house prices on a public dataset and compare 2-3 models",
+    "resources": ["scikit-learn User Guide", "Kaggle Learn (free micro-courses)"]
+  }
+}
