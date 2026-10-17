@@ -711,3 +711,263 @@ a {
     transition: none !important;
   }
 }
+
+/* ---------- Analyzer page ---------- */
+.analyzer {
+  padding: 50px 0 30px;
+}
+
+.analyzer-head {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.analyzer-head h1 {
+  font-size: clamp(30px, 4.5vw, 46px);
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.analyzer-head p {
+  color: var(--muted);
+}
+
+.analyzer-grid {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.results {
+  display: grid;
+  gap: 20px;
+}
+
+.panel {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 22px;
+  padding: 24px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.panel h2 {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 13px;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  padding: 30px 16px;
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 18px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.dropzone span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.dropzone:hover,
+.dropzone:focus-visible,
+.dropzone-active {
+  border-color: var(--cyan);
+  background: rgba(34, 211, 238, 0.06);
+  outline: none;
+}
+
+.dropzone-icon {
+  font-size: 30px;
+  margin-bottom: 6px;
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.file-row span:first-child {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--cyan);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.field-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 20px 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--glass-border);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: var(--violet);
+}
+
+.form-error {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.btn.full {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 300px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.spinner {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--cyan);
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.result-top {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.result-top .ring {
+  width: 110px;
+  height: 110px;
+}
+
+.result-top .ring span {
+  font-size: 26px;
+}
+
+.skill-block + .skill-block {
+  margin-top: 20px;
+}
+
+.skill-block h3 {
+  font-size: 15px;
+  margin-bottom: 10px;
+}
+
+.roadmap-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.roadmap-item {
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.roadmap-item ul {
+  margin: 10px 0 10px 20px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.roadmap-item p + p {
+  margin-top: 4px;
+}
+
+.roadmap-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.roadmap-title h3 {
+  font-size: 17px;
+}
+
+.roadmap-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #070a14;
+  background: linear-gradient(135deg, var(--violet), var(--cyan));
+}
+
+@media (max-width: 900px) {
+  .analyzer-grid {
+    grid-template-columns: 1fr;
+  }
+}

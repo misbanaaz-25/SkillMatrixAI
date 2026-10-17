@@ -14,7 +14,7 @@ const WIDTH = 520;
 const HEIGHT = 440;
 const CENTER = { x: 260, y: 220 };
 
-function ScoreRing({ score }) {
+export function ScoreRing({ score }) {
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - score / 100);

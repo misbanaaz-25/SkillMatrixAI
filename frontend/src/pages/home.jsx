@@ -13,7 +13,7 @@ const steps = [
   { title: "Close the gap", text: "See your match, missing skills and what to learn next." },
 ];
 
-function Home() {
+function Home({onAnalyze}) {
   const loopedSkills = [...marqueeSkills, ...marqueeSkills];
 
   return (
@@ -30,9 +30,9 @@ function Home() {
               you have, which are missing, and what to learn next.
             </p>
             <div className="hero-actions">
-              <a href="#top" className="btn btn-primary">
+              <button className="btn btn-primary" onClick={onAnalyze}>
                 Analyze my resume
-              </a>
+              </button>
               <a href="#how-it-works" className="btn btn-ghost">
                 How it works
               </a>
@@ -164,9 +164,9 @@ function Home() {
             Ready to see your <span className="gradient-text">skill gap</span>?
           </h2>
           <p>Upload your resume and find out what to learn next.</p>
-          <a href="#top" className="btn btn-primary">
-            Analyze my resume
-          </a>
+          <button className="btn btn-primary" onClick={onAnalyze}>
+           Analyze my resume
+          </button>
         </div>
       </div>
     </main>
