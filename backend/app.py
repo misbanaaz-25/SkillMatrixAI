@@ -1,6 +1,7 @@
 import os
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.services.job_matcher import analyze_match
 from backend.services.resume_parser import ALLOWED_EXTENSIONS, extract_resume_text
@@ -14,6 +15,13 @@ app = FastAPI(
     title="SkillMatrixAI",
     description="AI-powered Resume Analyzer and Skill Gap Analyzer",
     version="0.3.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -82,4 +90,4 @@ async def match_resume_to_job(
     result = analyze_match(text, job_description)
     roadmap = build_roadmap(result["missing_skills"])
 
-    return {"filename": filename, **result, "roadmap": roadmap}
+    return {"filename": filename, **result, "roadmap": roadmap} 
