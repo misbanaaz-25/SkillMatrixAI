@@ -3,6 +3,14 @@ import os
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.database import (
+    delete_analysis,
+    get_analysis,
+    get_stats,
+    init_db,
+    list_analyses,
+    save_analysis,
+)
 from backend.services.job_matcher import analyze_match
 from backend.services.resume_parser import ALLOWED_EXTENSIONS, extract_resume_text
 from backend.services.roadmap import build_roadmap
@@ -14,15 +22,17 @@ MIN_JOB_DESCRIPTION_LENGTH = 30
 app = FastAPI(
     title="SkillMatrixAI",
     description="AI-powered Resume Analyzer and Skill Gap Analyzer",
-    version="0.3.0",
+    version="0.4.0",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+init_db()
 
 
 async def read_resume(file: UploadFile) -> tuple[str, str]:
@@ -90,4 +100,38 @@ async def match_resume_to_job(
     result = analyze_match(text, job_description)
     roadmap = build_roadmap(result["missing_skills"])
 
-    return {"filename": filename, **result, "roadmap": roadmap} 
+    try:
+        analysis_id = save_analysis(filename, job_description, result)
+    except Exception:
+        analysis_id = None
+
+    return {"id": analysis_id, "filename": filename, **result, "roadmap": roadmap}
+
+
+@app.get("/history")
+def history():
+    return list_analyses()
+
+
+@app.get("/history/{analysis_id}")
+def history_detail(analysis_id: int):
+    analysis = get_analysis(analysis_id)
+
+    if analysis is None:
+        raise HTTPException(status_code=404, detail="Analysis not found.")
+
+    analysis["roadmap"] = build_roadmap(analysis["missing_skills"])
+    return analysis
+
+
+@app.delete("/history/{analysis_id}")
+def history_delete(analysis_id: int):
+    if not delete_analysis(analysis_id):
+        raise HTTPException(status_code=404, detail="Analysis not found.")
+
+    return {"deleted": analysis_id}
+
+
+@app.get("/stats")
+def stats():
+    return get_stats()

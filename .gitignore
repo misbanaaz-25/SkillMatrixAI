@@ -4,4 +4,6 @@ __pycache__/
 *.py[cod]
 .env
 .vscode/
+backend/data/*.db
+
 
