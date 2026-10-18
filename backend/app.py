@@ -1,4 +1,9 @@
 import os
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+from backend.services.chatbot import chat_reply
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -173,3 +178,42 @@ def history_delete(analysis_id: int):
 @app.get("/stats")
 def stats():
     return get_stats()
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=1000)
+
+
+class ChatRequest(BaseModel):
+    analysis_id: int
+    messages: list[ChatMessage] = Field(min_length=1, max_length=20)
+
+
+@app.post("/ai/chat")
+async def ai_chat(request: ChatRequest):
+    if request.messages[-1].role != "user":
+        raise HTTPException(status_code=400, detail="The last message must be from the user.")
+
+    analysis = get_analysis(request.analysis_id)
+    if analysis is None:
+        raise HTTPException(status_code=404, detail="Analysis not found.")
+
+    try:
+        reply = await run_in_threadpool(
+            chat_reply,
+            analysis,
+            [message.model_dump() for message in request.messages],
+        )
+    except LLMNotConfiguredError:
+        raise HTTPException(status_code=503, detail="The chatbot is not configured on the server.")
+    except ValueError:
+        raise HTTPException(
+            status_code=502, detail="The AI returned an unexpected answer. Please try again."
+        )
+    except APIError:
+        raise HTTPException(
+            status_code=502,
+            detail="The AI service is busy or its free limit was reached. Please try again in a minute.",
+        )
+
+    return {"reply": reply}

@@ -38,3 +38,18 @@ export function getHistory() {
 export function deleteAnalysis(id) {
   return request(`/history/${id}`, { method: "DELETE" });
 }
+
+export function getAiFeedback(file, jobDescription) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("job_description", jobDescription);
+
+  return request("/ai/feedback", { method: "POST", body: formData });
+}
+export function sendChatMessage(analysisId, messages) {
+  return request("/ai/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ analysis_id: analysisId, messages }),
+  });
+}

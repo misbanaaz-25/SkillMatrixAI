@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 
-import { analyzeMatch } from "../api";
+import { analyzeMatch, getAiFeedback } from "../api";
 import { ScoreRing } from "../components/SkillConstellation";
+import ChatBox from "../components/ChatBox";
 
 const SAMPLE_JOB_DESCRIPTION =
   "We are looking for a Python Developer with experience in FastAPI, SQL, Git, REST APIs and testing. Knowledge of Docker and AWS is a plus.";
@@ -10,12 +11,22 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = [".pdf", ".docx"];
 const MIN_JOB_DESCRIPTION_LENGTH = 30;
 
+const IDLE_AI = { status: "idle", data: null, error: "" };
+
+function friendlyError(err) {
+  return err.message === "Failed to fetch"
+    ? "Cannot reach the backend. Make sure the server is running on port 8000."
+    : err.message;
+}
+
 function Analyzer() {
   const [file, setFile] = useState(null);
   const [jobDescription, setJobDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [analyzedInput, setAnalyzedInput] = useState(null);
+  const [ai, setAi] = useState(IDLE_AI);
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef(null);
 
@@ -43,18 +54,29 @@ function Analyzer() {
     setLoading(true);
     setError("");
     setResult(null);
+    setAi(IDLE_AI);
 
     try {
       const data = await analyzeMatch(file, jobDescription);
       setResult(data);
+      setAnalyzedInput({ file, jobDescription });
     } catch (err) {
-      setError(
-        err.message === "Failed to fetch"
-          ? "Cannot reach the backend. Make sure the server is running on port 8000."
-          : err.message
-      );
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFeedback = async () => {
+    if (!analyzedInput) return;
+
+    setAi({ status: "loading", data: null, error: "" });
+
+    try {
+      const data = await getAiFeedback(analyzedInput.file, analyzedInput.jobDescription);
+      setAi({ status: "done", data: data.feedback, error: "" });
+    } catch (err) {
+      setAi({ status: "error", data: null, error: friendlyError(err) });
     }
   };
 
@@ -166,7 +188,9 @@ function Analyzer() {
               </div>
             )}
 
-            {!loading && result && <Results result={result} />}
+            {!loading && result && (
+              <Results result={result} ai={ai} onGetFeedback={handleFeedback} />
+            )}
           </div>
         </div>
       </div>
@@ -174,7 +198,105 @@ function Analyzer() {
   );
 }
 
-function Results({ result }) {
+function AiFeedbackPanel({ ai, onGetFeedback }) {
+  if (ai.status === "done" && ai.data) {
+    const { summary, strengths, improvements, bullet_rewrites: rewrites } = ai.data;
+
+    return (
+      <div className="panel">
+        <h2>✨ AI feedback</h2>
+
+        {summary && <p className="ai-summary">{summary}</p>}
+
+        {strengths.length > 0 && (
+          <div className="skill-block">
+            <h3>What is working</h3>
+            <ul className="ai-list ai-good">
+              {strengths.map((item, index) => (
+                <li key={`s-${index}`}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {improvements.length > 0 && (
+          <div className="skill-block">
+            <h3>What to improve</h3>
+            <ul className="ai-list ai-warn">
+              {improvements.map((item, index) => (
+                <li key={`i-${index}`}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {rewrites.length > 0 && (
+          <div className="skill-block">
+            <h3>Better wording for your bullet points</h3>
+            {rewrites.map((item, index) => (
+              <div className="rewrite" key={`r-${index}`}>
+                <p className="rewrite-before">
+                  <span>Before</span>
+                  {item.original}
+                </p>
+                <p className="rewrite-after">
+                  <span>After</span>
+                  {item.improved}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p className="muted small">
+          AI suggestions can be wrong or generic. Check every point against your real
+          experience, and replace placeholders like [X%] with true numbers only.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="panel">
+      <h2>✨ AI feedback</h2>
+      <p className="muted small">
+        Get strengths, improvements and better wording for your bullet points.
+      </p>
+      <p className="notice small">
+        To do this, your resume text (email, phone and links removed) is sent to an
+        external AI service, currently Google Gemini's free tier. Use it only if you are
+        comfortable with that.
+      </p>
+
+      {ai.status === "error" && (
+        <p className="form-error" role="alert">
+          {ai.error}
+        </p>
+      )}
+
+      {ai.status === "loading" && (
+        <div className="ai-loading">
+          <div className="spinner" />
+          <span>The AI is reading your resume. This can take up to 20 seconds...</span>
+        </div>
+      )}
+
+      <button
+        className="btn btn-primary full"
+        onClick={onGetFeedback}
+        disabled={ai.status === "loading"}
+      >
+        {ai.status === "loading"
+          ? "Thinking..."
+          : ai.status === "error"
+            ? "Try again"
+            : "Get AI feedback"}
+      </button>
+    </div>
+  );
+}
+
+function Results({ result, ai, onGetFeedback }) {
   const score = Math.round(result.match_score);
   const noSkillsInJob = result.job_skills_detected === 0;
 
@@ -262,6 +384,9 @@ function Results({ result }) {
         )}
       </div>
 
+            <AiFeedbackPanel ai={ai} onGetFeedback={onGetFeedback} />
+
+      {result.id && <ChatBox key={result.id} analysisId={result.id} />}
       {result.roadmap.length > 0 && (
         <div className="panel">
           <h2>Your learning roadmap</h2>
