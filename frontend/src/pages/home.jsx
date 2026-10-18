@@ -123,11 +123,9 @@ function Home({onAnalyze}) {
             </div>
 
             <div className="bento-card span-3">
-              <div className="card-icon">✨</div>
-              <h3>
-                Personalisation<span className="soon">Coming soon</span>
-              </h3>
-              <p>Roadmaps that adapt to your level, goals and pace.</p>
+             <div className="card-icon">🗂️</div>
+             <h3>Dashboard &amp; History</h3>
+             <p>Track your scores and review past analyses. Downloadable reports are coming soon.</p>
             </div>
 
             <div className="bento-card span-3">
