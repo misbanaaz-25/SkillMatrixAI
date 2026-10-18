@@ -1,7 +1,9 @@
 import os
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from openai import APIError
 
 from backend.database import (
     delete_analysis,
@@ -11,7 +13,9 @@ from backend.database import (
     list_analyses,
     save_analysis,
 )
+from backend.services.ai_feedback import generate_feedback
 from backend.services.job_matcher import analyze_match
+from backend.services.llm import LLMNotConfiguredError
 from backend.services.resume_parser import ALLOWED_EXTENSIONS, extract_resume_text
 from backend.services.roadmap import build_roadmap
 from backend.services.skill_extractor import extract_skills
@@ -22,7 +26,7 @@ MIN_JOB_DESCRIPTION_LENGTH = 30
 app = FastAPI(
     title="SkillMatrixAI",
     description="AI-powered Resume Analyzer and Skill Gap Analyzer",
-    version="0.4.0",
+    version="0.5.0",
 )
 
 app.add_middleware(
@@ -106,6 +110,40 @@ async def match_resume_to_job(
         analysis_id = None
 
     return {"id": analysis_id, "filename": filename, **result, "roadmap": roadmap}
+
+
+@app.post("/ai/feedback")
+async def ai_feedback(
+    file: UploadFile = File(...),
+    job_description: str = Form(...),
+):
+    if len(job_description.strip()) < MIN_JOB_DESCRIPTION_LENGTH:
+        raise HTTPException(status_code=400, detail="Please provide a longer job description.")
+
+    filename, text = await read_resume(file)
+    result = analyze_match(text, job_description)
+
+    try:
+        feedback = await run_in_threadpool(
+            generate_feedback,
+            text,
+            job_description,
+            result["matched_skills"],
+            result["missing_skills"],
+        )
+    except LLMNotConfiguredError:
+        raise HTTPException(status_code=503, detail="AI feedback is not configured on the server.")
+    except ValueError:
+        raise HTTPException(
+            status_code=502, detail="The AI returned an unexpected answer. Please try again."
+        )
+    except APIError:
+        raise HTTPException(
+            status_code=502,
+            detail="The AI service is busy or its free limit was reached. Please try again in a minute.",
+        )
+
+    return {"filename": filename, "feedback": feedback}
 
 
 @app.get("/history")
