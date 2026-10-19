@@ -4,6 +4,7 @@ import Navbar from "./components/Navbar";
 import Analyzer from "./pages/Analyzer";
 import Dashboard from "./pages/Dashboard";
 import Home from "./pages/Home";
+import Tracker from "./pages/Tracker";
 
 function App() {
   const [view, setView] = useState("home");
@@ -15,16 +16,12 @@ function App() {
 
   return (
     <>
-      <Navbar
-        view={view}
-        onHome={() => goTo("home")}
-        onAnalyze={() => goTo("analyzer")}
-        onDashboard={() => goTo("dashboard")}
-      />
+      <Navbar view={view} onNavigate={goTo} />
 
       {view === "home" && <Home onAnalyze={() => goTo("analyzer")} />}
       {view === "analyzer" && <Analyzer />}
       {view === "dashboard" && <Dashboard onAnalyze={() => goTo("analyzer")} />}
+      {view === "tracker" && <Tracker />}
 
       <footer className="footer">
         <div className="container">

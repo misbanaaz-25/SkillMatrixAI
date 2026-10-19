@@ -6,3 +6,4 @@ python-docx
 scikit-learn
 numpy
 pandas
+openai

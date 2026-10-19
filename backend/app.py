@@ -10,6 +10,15 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from openai import APIError
 
+from backend.applications import (
+    create_application,
+    delete_application,
+    get_application_stats,
+    init_applications_db,
+    list_applications,
+    update_application,
+)
+
 from backend.database import (
     delete_analysis,
     get_analysis,
@@ -217,3 +226,62 @@ async def ai_chat(request: ChatRequest):
         )
 
     return {"reply": reply}
+
+init_applications_db()
+
+
+class ApplicationIn(BaseModel):
+    company: str = Field(min_length=1, max_length=100)
+    role: str = Field(min_length=1, max_length=100)
+    status: Literal["saved", "applied", "interview", "offer", "rejected"] = "saved"
+    applied_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    job_link: str | None = Field(default=None, max_length=500, pattern=r"^https?://\S+$")
+    notes: str | None = Field(default=None, max_length=1000)
+    analysis_id: int | None = None
+
+
+def clean_application(application: ApplicationIn) -> dict:
+    data = application.model_dump()
+    data["company"] = data["company"].strip()
+    data["role"] = data["role"].strip()
+
+    if not data["company"] or not data["role"]:
+        raise HTTPException(status_code=400, detail="Company and role cannot be empty.")
+
+    if data["notes"] is not None:
+        data["notes"] = data["notes"].strip() or None
+
+    return data
+
+
+@app.get("/applications/stats")
+def applications_stats():
+    return get_application_stats()
+
+
+@app.get("/applications")
+def applications_list(status: str | None = None):
+    return list_applications(status)
+
+
+@app.post("/applications")
+def applications_create(application: ApplicationIn):
+    return create_application(clean_application(application))
+
+
+@app.put("/applications/{application_id}")
+def applications_update(application_id: int, application: ApplicationIn):
+    updated = update_application(application_id, clean_application(application))
+
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Application not found.")
+
+    return updated
+
+
+@app.delete("/applications/{application_id}")
+def applications_delete(application_id: int):
+    if not delete_application(application_id):
+        raise HTTPException(status_code=404, detail="Application not found.")
+
+    return {"deleted": application_id}

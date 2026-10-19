@@ -9,6 +9,10 @@ async function request(path, options) {
       const error = await response.json();
       if (typeof error.detail === "string") {
         message = error.detail;
+      } else if (Array.isArray(error.detail) && error.detail.length > 0) {
+        const first = error.detail[0];
+        const field = Array.isArray(first.loc) ? first.loc[first.loc.length - 1] : "input";
+        message = `Please check "${field}": ${first.msg}`;
       }
     } catch {
       // response was not JSON, keep the default message
@@ -19,12 +23,33 @@ async function request(path, options) {
   return response.json();
 }
 
-export function analyzeMatch(file, jobDescription) {
+function buildResumeForm(file, jobDescription) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("job_description", jobDescription);
+  return formData;
+}
 
-  return request("/analyze/match", { method: "POST", body: formData });
+export function analyzeMatch(file, jobDescription) {
+  return request("/analyze/match", {
+    method: "POST",
+    body: buildResumeForm(file, jobDescription),
+  });
+}
+
+export function getAiFeedback(file, jobDescription) {
+  return request("/ai/feedback", {
+    method: "POST",
+    body: buildResumeForm(file, jobDescription),
+  });
+}
+
+export function sendChatMessage(analysisId, messages) {
+  return request("/ai/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ analysis_id: analysisId, messages }),
+  });
 }
 
 export function getStats() {
@@ -39,17 +64,30 @@ export function deleteAnalysis(id) {
   return request(`/history/${id}`, { method: "DELETE" });
 }
 
-export function getAiFeedback(file, jobDescription) {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("job_description", jobDescription);
-
-  return request("/ai/feedback", { method: "POST", body: formData });
+export function getApplicationStats() {
+  return request("/applications/stats");
 }
-export function sendChatMessage(analysisId, messages) {
-  return request("/ai/chat", {
+
+export function getApplications() {
+  return request("/applications");
+}
+
+export function createApplication(payload) {
+  return request("/applications", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ analysis_id: analysisId, messages }),
+    body: JSON.stringify(payload),
   });
+}
+
+export function updateApplication(id, payload) {
+  return request(`/applications/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteApplication(id) {
+  return request(`/applications/${id}`, { method: "DELETE" });
 }

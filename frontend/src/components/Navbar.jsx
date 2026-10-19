@@ -1,8 +1,13 @@
-function Navbar({ view, onHome, onAnalyze, onDashboard }) {
+const PAGES = [
+  { id: "dashboard", label: "Dashboard" },
+  { id: "tracker", label: "Job Tracker" },
+];
+
+function Navbar({ view, onNavigate }) {
   return (
     <header className="navbar">
       <div className="container navbar-inner">
-        <a href="#top" className="logo" onClick={onHome}>
+        <a href="#top" className="logo" onClick={() => onNavigate("home")}>
           <span className="logo-mark">◈</span>
           <span>
             SkillMatrix<span className="gradient-text">AI</span>
@@ -16,19 +21,24 @@ function Navbar({ view, onHome, onAnalyze, onDashboard }) {
               <a href="#how-it-works">How it works</a>
             </>
           ) : (
-            <a href="#top" className="nav-keep" onClick={onHome}>
+            <a href="#top" className="nav-keep" onClick={() => onNavigate("home")}>
               Home
             </a>
           )}
 
-          {view !== "dashboard" && (
-            <a href="#top" className="nav-keep" onClick={onDashboard}>
-              Dashboard
+          {PAGES.filter((page) => page.id !== view).map((page) => (
+            <a
+              key={page.id}
+              href="#top"
+              className="nav-keep"
+              onClick={() => onNavigate(page.id)}
+            >
+              {page.label}
             </a>
-          )}
+          ))}
 
           {view !== "analyzer" && (
-            <button className="btn btn-primary btn-small" onClick={onAnalyze}>
+            <button className="btn btn-primary btn-small" onClick={() => onNavigate("analyzer")}>
               {view === "home" ? "Get Started" : "Analyze"}
             </button>
           )}
