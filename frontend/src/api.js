@@ -91,3 +91,25 @@ export function updateApplication(id, payload) {
 export function deleteApplication(id) {
   return request(`/applications/${id}`, { method: "DELETE" });
 }
+
+export async function downloadReport(result) {
+  const response = await fetch(`${API_BASE_URL}/report/download`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(result),
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not create the report. Please try again.");
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `SkillMatrixAI_Report_${result.id ?? "analysis"}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}

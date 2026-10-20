@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 
-import { analyzeMatch, getAiFeedback } from "../api";
+import { analyzeMatch, getAiFeedback, downloadReport } from "../api";
 import { ScoreRing } from "../components/SkillConstellation";
 import ChatBox from "../components/ChatBox";
 
@@ -27,6 +27,8 @@ function Analyzer() {
   const [result, setResult] = useState(null);
   const [analyzedInput, setAnalyzedInput] = useState(null);
   const [ai, setAi] = useState(IDLE_AI);
+  const [downloading, setDownloading] = useState(false);
+  const [reportError, setReportError] = useState("");
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef(null);
 
@@ -53,6 +55,7 @@ function Analyzer() {
   const handleAnalyze = async () => {
     setLoading(true);
     setError("");
+    setReportError("");
     setResult(null);
     setAi(IDLE_AI);
 
@@ -77,6 +80,21 @@ function Analyzer() {
       setAi({ status: "done", data: data.feedback, error: "" });
     } catch (err) {
       setAi({ status: "error", data: null, error: friendlyError(err) });
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!result) return;
+
+    setDownloading(true);
+    setReportError("");
+
+    try {
+      await downloadReport(result);
+    } catch (err) {
+      setReportError(friendlyError(err));
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -189,7 +207,14 @@ function Analyzer() {
             )}
 
             {!loading && result && (
-              <Results result={result} ai={ai} onGetFeedback={handleFeedback} />
+              <Results
+                result={result}
+                ai={ai}
+                onGetFeedback={handleFeedback}
+                onDownload={handleDownload}
+                downloading={downloading}
+                reportError={reportError}
+              />
             )}
           </div>
         </div>
@@ -296,7 +321,7 @@ function AiFeedbackPanel({ ai, onGetFeedback }) {
   );
 }
 
-function Results({ result, ai, onGetFeedback }) {
+function Results({ result, ai, onGetFeedback, onDownload, downloading, reportError }) {
   const score = Math.round(result.match_score);
   const noSkillsInJob = result.job_skills_detected === 0;
 
@@ -334,6 +359,16 @@ function Results({ result, ai, onGetFeedback }) {
         </div>
 
         <p className="muted small">{result.note}</p>
+
+        {reportError && (
+          <p className="form-error" role="alert">
+            {reportError}
+          </p>
+        )}
+
+        <button className="btn btn-primary full" onClick={onDownload} disabled={downloading}>
+          {downloading ? "Creating report..." : "📥 Download report (PDF)"}
+        </button>
       </div>
 
       <div className="panel">
@@ -384,9 +419,9 @@ function Results({ result, ai, onGetFeedback }) {
         )}
       </div>
 
-            
-  <AiFeedbackPanel ai={ai} onGetFeedback={onGetFeedback} />
-  {result.id && <ChatBox key={result.id} analysisId={result.id} />}
+      <AiFeedbackPanel ai={ai} onGetFeedback={onGetFeedback} />
+      {result.id && <ChatBox key={result.id} analysisId={result.id} />}
+
       {result.roadmap.length > 0 && (
         <div className="panel">
           <h2>Your learning roadmap</h2>
