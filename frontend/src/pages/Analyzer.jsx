@@ -384,9 +384,9 @@ function Results({ result, ai, onGetFeedback }) {
         )}
       </div>
 
-            <AiFeedbackPanel ai={ai} onGetFeedback={onGetFeedback} />
-
-      {result.id && <ChatBox key={result.id} analysisId={result.id} />}
+            
+  <AiFeedbackPanel ai={ai} onGetFeedback={onGetFeedback} />
+  {result.id && <ChatBox key={result.id} analysisId={result.id} />}
       {result.roadmap.length > 0 && (
         <div className="panel">
           <h2>Your learning roadmap</h2>

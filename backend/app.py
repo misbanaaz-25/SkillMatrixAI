@@ -1,4 +1,8 @@
 import os
+
+from fastapi import Body
+from fastapi.responses import Response
+from backend.services.report import build_report_pdf
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -285,3 +289,13 @@ def applications_delete(application_id: int):
         raise HTTPException(status_code=404, detail="Application not found.")
 
     return {"deleted": application_id}
+
+@app.post("/report/download")
+def download_report(data: dict = Body(...)):
+    pdf_bytes = build_report_pdf(data)
+    filename = f"SkillMatrixAI_Report_{data.get('id', 'analysis')}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
