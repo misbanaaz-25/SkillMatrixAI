@@ -1,7 +1,55 @@
 const API_BASE_URL = "http://127.0.0.1:8000";
 
-async function request(path, options) {
-  const response = await fetch(`${API_BASE_URL}${path}`, options);
+const TOKEN_KEY = "skillmatrix_token";
+const USER_KEY = "skillmatrix_user";
+
+/* ---------- saved login (stays after refresh) ---------- */
+
+export function getToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function getStoredUser() {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSession(token, user) {
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  } catch {
+    // storage blocked, the user will just need to log in again next time
+  }
+}
+
+export function clearSession() {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  } catch {
+    // nothing to clear
+  }
+}
+
+/* ---------- core request helper ---------- */
+
+async function request(path, options = {}) {
+  const token = getToken();
+  const headers = { ...(options.headers || {}) };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
 
   if (!response.ok) {
     let message = "Something went wrong. Please try again.";
@@ -17,6 +65,13 @@ async function request(path, options) {
     } catch {
       // response was not JSON, keep the default message
     }
+
+    // a saved token that the server no longer accepts: log the user out
+    if (response.status === 401 && token) {
+      clearSession();
+      window.dispatchEvent(new Event("auth:expired"));
+    }
+
     throw new Error(message);
   }
 
@@ -29,6 +84,30 @@ function buildResumeForm(file, jobDescription) {
   formData.append("job_description", jobDescription);
   return formData;
 }
+
+/* ---------- auth ---------- */
+
+export function signup(name, email, password) {
+  return request("/auth/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password }),
+  });
+}
+
+export function login(email, password) {
+  return request("/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export function getMe() {
+  return request("/auth/me");
+}
+
+/* ---------- analysis ---------- */
 
 export function analyzeMatch(file, jobDescription) {
   return request("/analyze/match", {
@@ -52,6 +131,30 @@ export function sendChatMessage(analysisId, messages) {
   });
 }
 
+export async function downloadReport(result) {
+  const response = await fetch(`${API_BASE_URL}/report/download`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(result),
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not create the report. Please try again.");
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `SkillMatrixAI_Report_${result.id ?? "analysis"}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+/* ---------- history and stats ---------- */
+
 export function getStats() {
   return request("/stats");
 }
@@ -63,6 +166,8 @@ export function getHistory() {
 export function deleteAnalysis(id) {
   return request(`/history/${id}`, { method: "DELETE" });
 }
+
+/* ---------- job tracker ---------- */
 
 export function getApplicationStats() {
   return request("/applications/stats");
@@ -90,26 +195,4 @@ export function updateApplication(id, payload) {
 
 export function deleteApplication(id) {
   return request(`/applications/${id}`, { method: "DELETE" });
-}
-
-export async function downloadReport(result) {
-  const response = await fetch(`${API_BASE_URL}/report/download`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(result),
-  });
-
-  if (!response.ok) {
-    throw new Error("Could not create the report. Please try again.");
-  }
-
-  const blob = await response.blob();
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `SkillMatrixAI_Report_${result.id ?? "analysis"}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
 }

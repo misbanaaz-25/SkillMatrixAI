@@ -1,27 +1,44 @@
 import { useState } from "react";
 
 import Navbar from "./components/Navbar";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import Analyzer from "./pages/Analyzer";
+import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Home from "./pages/Home";
 import Tracker from "./pages/Tracker";
 
-function App() {
+const LOGIN_REQUIRED = ["dashboard", "tracker"];
+
+function AppContent() {
   const [view, setView] = useState("home");
+  const { isLoggedIn, checking } = useAuth();
 
   const goTo = (nextView) => {
     setView(nextView);
     window.scrollTo(0, 0);
   };
 
+  // logged-out users can't open pages that show personal data
+  const needsLogin = LOGIN_REQUIRED.includes(view) && !isLoggedIn;
+  const activeView = needsLogin ? "login" : view;
+
   return (
     <>
-      <Navbar view={view} onNavigate={goTo} />
+      <Navbar view={activeView} onNavigate={goTo} />
 
-      {view === "home" && <Home onAnalyze={() => goTo("analyzer")} />}
-      {view === "analyzer" && <Analyzer />}
-      {view === "dashboard" && <Dashboard onAnalyze={() => goTo("analyzer")} />}
-      {view === "tracker" && <Tracker />}
+      {activeView === "home" && <Home onAnalyze={() => goTo("analyzer")} />}
+      {activeView === "analyzer" && <Analyzer />}
+      {activeView === "dashboard" && <Dashboard onAnalyze={() => goTo("analyzer")} />}
+      {activeView === "tracker" && <Tracker />}
+      {(activeView === "login" || activeView === "signup") && !checking && (
+        <Auth
+          key={activeView}
+          mode={activeView}
+          onNavigate={goTo}
+          onSuccess={() => goTo(needsLogin ? view : "analyzer")}
+        />
+      )}
 
       <footer className="footer">
         <div className="container">
@@ -30,6 +47,14 @@ function App() {
         </div>
       </footer>
     </>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
