@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from backend.services.chatbot import chat_reply
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from openai import APIError
@@ -38,6 +38,20 @@ from backend.services.resume_parser import ALLOWED_EXTENSIONS, extract_resume_te
 from backend.services.roadmap import build_roadmap
 from backend.services.skill_extractor import extract_skills
 
+from backend.auth import (
+    create_token,
+    get_current_user,
+    get_optional_user,
+    hash_password,
+    verify_password,
+)
+from backend.users import (
+    create_user,
+    find_user_by_email,
+    init_users_db,
+    public_user,
+)
+
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 MIN_JOB_DESCRIPTION_LENGTH = 30
 
@@ -55,6 +69,7 @@ app.add_middleware(
 )
 
 init_db()
+init_users_db()
 
 
 async def read_resume(file: UploadFile) -> tuple[str, str]:
@@ -114,6 +129,7 @@ async def analyze_resume(file: UploadFile = File(...)):
 async def match_resume_to_job(
     file: UploadFile = File(...),
     job_description: str = Form(...),
+    user: dict | None = Depends(get_optional_user),
 ):
     if len(job_description.strip()) < MIN_JOB_DESCRIPTION_LENGTH:
         raise HTTPException(status_code=400, detail="Please provide a longer job description.")
@@ -123,12 +139,13 @@ async def match_resume_to_job(
     roadmap = build_roadmap(result["missing_skills"])
 
     try:
-        analysis_id = save_analysis(filename, job_description, result)
+        analysis_id = save_analysis(
+            filename, job_description, result, user["id"] if user else None
+        )
     except Exception:
         analysis_id = None
 
     return {"id": analysis_id, "filename": filename, **result, "roadmap": roadmap}
-
 
 @app.post("/ai/feedback")
 async def ai_feedback(
@@ -165,15 +182,15 @@ async def ai_feedback(
 
 
 @app.get("/history")
-def history():
-    return list_analyses()
+def history(user: dict = Depends(get_current_user)):
+    return list_analyses(user["id"])
 
 
 @app.get("/history/{analysis_id}")
-def history_detail(analysis_id: int):
+def history_detail(analysis_id: int, user: dict = Depends(get_current_user)):
     analysis = get_analysis(analysis_id)
 
-    if analysis is None:
+    if analysis is None or analysis["user_id"] != user["id"]:
         raise HTTPException(status_code=404, detail="Analysis not found.")
 
     analysis["roadmap"] = build_roadmap(analysis["missing_skills"])
@@ -181,16 +198,19 @@ def history_detail(analysis_id: int):
 
 
 @app.delete("/history/{analysis_id}")
-def history_delete(analysis_id: int):
-    if not delete_analysis(analysis_id):
+def history_delete(analysis_id: int, user: dict = Depends(get_current_user)):
+    if not delete_analysis(analysis_id, user["id"]):
         raise HTTPException(status_code=404, detail="Analysis not found.")
 
     return {"deleted": analysis_id}
 
 
 @app.get("/stats")
-def stats():
-    return get_stats()
+def stats(user: dict = Depends(get_current_user)):
+    return get_stats(user["id"])
+
+
+
 
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
@@ -203,12 +223,15 @@ class ChatRequest(BaseModel):
 
 
 @app.post("/ai/chat")
-async def ai_chat(request: ChatRequest):
+async def ai_chat(request: ChatRequest, user: dict | None = Depends(get_optional_user)):
     if request.messages[-1].role != "user":
         raise HTTPException(status_code=400, detail="The last message must be from the user.")
 
     analysis = get_analysis(request.analysis_id)
-    if analysis is None:
+
+    # a saved analysis that belongs to someone can only be used by that person
+    owner_id = analysis["user_id"] if analysis else None
+    if analysis is None or (owner_id is not None and (user is None or user["id"] != owner_id)):
         raise HTTPException(status_code=404, detail="Analysis not found.")
 
     try:
@@ -230,7 +253,6 @@ async def ai_chat(request: ChatRequest):
         )
 
     return {"reply": reply}
-
 init_applications_db()
 
 
@@ -244,7 +266,7 @@ class ApplicationIn(BaseModel):
     analysis_id: int | None = None
 
 
-def clean_application(application: ApplicationIn) -> dict:
+def clean_application(application: ApplicationIn, user: dict) -> dict:
     data = application.model_dump()
     data["company"] = data["company"].strip()
     data["role"] = data["role"].strip()
@@ -255,27 +277,37 @@ def clean_application(application: ApplicationIn) -> dict:
     if data["notes"] is not None:
         data["notes"] = data["notes"].strip() or None
 
+    # a linked analysis must belong to this user
+    if data["analysis_id"] is not None:
+        analysis = get_analysis(data["analysis_id"])
+        if analysis is None or analysis["user_id"] != user["id"]:
+            raise HTTPException(status_code=400, detail="The selected analysis was not found.")
+
     return data
 
 
 @app.get("/applications/stats")
-def applications_stats():
-    return get_application_stats()
+def applications_stats(user: dict = Depends(get_current_user)):
+    return get_application_stats(user["id"])
 
 
 @app.get("/applications")
-def applications_list(status: str | None = None):
-    return list_applications(status)
+def applications_list(status: str | None = None, user: dict = Depends(get_current_user)):
+    return list_applications(user["id"], status)
 
 
 @app.post("/applications")
-def applications_create(application: ApplicationIn):
-    return create_application(clean_application(application))
+def applications_create(application: ApplicationIn, user: dict = Depends(get_current_user)):
+    return create_application(user["id"], clean_application(application, user))
 
 
 @app.put("/applications/{application_id}")
-def applications_update(application_id: int, application: ApplicationIn):
-    updated = update_application(application_id, clean_application(application))
+def applications_update(
+    application_id: int, application: ApplicationIn, user: dict = Depends(get_current_user)
+):
+    updated = update_application(
+        user["id"], application_id, clean_application(application, user)
+    )
 
     if updated is None:
         raise HTTPException(status_code=404, detail="Application not found.")
@@ -284,8 +316,8 @@ def applications_update(application_id: int, application: ApplicationIn):
 
 
 @app.delete("/applications/{application_id}")
-def applications_delete(application_id: int):
-    if not delete_application(application_id):
+def applications_delete(application_id: int, user: dict = Depends(get_current_user)):
+    if not delete_application(user["id"], application_id):
         raise HTTPException(status_code=404, detail="Application not found.")
 
     return {"deleted": application_id}
@@ -299,3 +331,42 @@ def download_report(data: dict = Body(...)):
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+class SignupIn(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    email: str = Field(max_length=120, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(min_length=8, max_length=72)
+
+
+class LoginIn(BaseModel):
+    email: str = Field(max_length=120)
+    password: str = Field(max_length=72)
+
+
+@app.post("/auth/signup")
+def auth_signup(data: SignupIn):
+    name = data.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name cannot be empty.")
+
+    user = create_user(name, data.email.strip().lower(), hash_password(data.password))
+    if user is None:
+        raise HTTPException(status_code=409, detail="An account with this email already exists.")
+
+    return {"token": create_token(user["id"]), "user": public_user(user)}
+
+
+@app.post("/auth/login")
+def auth_login(data: LoginIn):
+    user = find_user_by_email(data.email.strip().lower())
+
+    # same message for wrong email and wrong password, so nobody can check which emails exist
+    if user is None or not verify_password(data.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Incorrect email or password.")
+
+    return {"token": create_token(user["id"]), "user": public_user(user)}
+
+
+@app.get("/auth/me")
+def auth_me(user: dict = Depends(get_current_user)):
+    return user

@@ -39,10 +39,16 @@ def init_db() -> None:
             """
         )
 
+        # older databases do not have user_id yet, so add it once
+        columns = [row["name"] for row in connection.execute("PRAGMA table_info(analyses)")]
+        if "user_id" not in columns:
+            connection.execute("ALTER TABLE analyses ADD COLUMN user_id INTEGER")
+
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
     return {
         "id": row["id"],
+        "user_id": row["user_id"],
         "created_at": row["created_at"],
         "filename": row["filename"],
         "job_preview": row["job_preview"],
@@ -55,7 +61,9 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
     }
 
 
-def save_analysis(filename: str, job_description: str, result: dict) -> int:
+def save_analysis(
+    filename: str, job_description: str, result: dict, user_id: int | None = None
+) -> int:
     created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     job_preview = " ".join(job_description.split())[:JOB_PREVIEW_LENGTH]
 
@@ -64,8 +72,8 @@ def save_analysis(filename: str, job_description: str, result: dict) -> int:
             """
             INSERT INTO analyses (
                 created_at, filename, job_preview, match_score, skill_match_score,
-                text_similarity_score, matched_skills, missing_skills, extra_skills
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                text_similarity_score, matched_skills, missing_skills, extra_skills, user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 created_at,
@@ -77,15 +85,17 @@ def save_analysis(filename: str, job_description: str, result: dict) -> int:
                 json.dumps(result["matched_skills"]),
                 json.dumps(result["missing_skills"]),
                 json.dumps(result["extra_skills"]),
+                user_id,
             ),
         )
         return cursor.lastrowid
 
 
-def list_analyses(limit: int = 50) -> list[dict]:
+def list_analyses(user_id: int, limit: int = 50) -> list[dict]:
     with get_connection() as connection:
         rows = connection.execute(
-            "SELECT * FROM analyses ORDER BY id DESC LIMIT ?", (limit,)
+            "SELECT * FROM analyses WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+            (user_id, limit),
         ).fetchall()
     return [_row_to_dict(row) for row in rows]
 
@@ -98,15 +108,19 @@ def get_analysis(analysis_id: int) -> dict | None:
     return _row_to_dict(row) if row else None
 
 
-def delete_analysis(analysis_id: int) -> bool:
+def delete_analysis(analysis_id: int, user_id: int) -> bool:
     with get_connection() as connection:
-        cursor = connection.execute("DELETE FROM analyses WHERE id = ?", (analysis_id,))
+        cursor = connection.execute(
+            "DELETE FROM analyses WHERE id = ? AND user_id = ?", (analysis_id, user_id)
+        )
         return cursor.rowcount > 0
 
 
-def get_stats() -> dict:
+def get_stats(user_id: int) -> dict:
     with get_connection() as connection:
-        rows = connection.execute("SELECT * FROM analyses ORDER BY id ASC").fetchall()
+        rows = connection.execute(
+            "SELECT * FROM analyses WHERE user_id = ? ORDER BY id ASC", (user_id,)
+        ).fetchall()
 
     analyses = [_row_to_dict(row) for row in rows]
 

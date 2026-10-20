@@ -8,3 +8,6 @@ numpy
 pandas
 openai
 report.py
+bcrypt
+pyjwt
+pyhton-dotenv

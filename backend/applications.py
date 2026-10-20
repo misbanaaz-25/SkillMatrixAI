@@ -24,6 +24,11 @@ def init_applications_db() -> None:
             """
         )
 
+        # older databases do not have user_id yet, so add it once
+        columns = [row["name"] for row in connection.execute("PRAGMA table_info(applications)")]
+        if "user_id" not in columns:
+            connection.execute("ALTER TABLE applications ADD COLUMN user_id INTEGER")
+
 
 def _row_to_dict(row) -> dict:
     return {
@@ -44,7 +49,7 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def create_application(data: dict) -> dict:
+def create_application(user_id: int, data: dict) -> dict:
     now = _now()
 
     with get_connection() as connection:
@@ -52,8 +57,8 @@ def create_application(data: dict) -> dict:
             """
             INSERT INTO applications (
                 created_at, updated_at, company, role, status,
-                applied_date, job_link, notes, analysis_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                applied_date, job_link, notes, analysis_id, user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 now,
@@ -65,6 +70,7 @@ def create_application(data: dict) -> dict:
                 data["job_link"],
                 data["notes"],
                 data["analysis_id"],
+                user_id,
             ),
         )
         row = connection.execute(
@@ -73,24 +79,34 @@ def create_application(data: dict) -> dict:
         return _row_to_dict(row)
 
 
-def list_applications(status: str | None = None) -> list[dict]:
+def list_applications(user_id: int, status: str | None = None) -> list[dict]:
     with get_connection() as connection:
         if status:
             rows = connection.execute(
-                "SELECT * FROM applications WHERE status = ? ORDER BY updated_at DESC, id DESC",
-                (status,),
+                """
+                SELECT * FROM applications
+                WHERE user_id = ? AND status = ?
+                ORDER BY updated_at DESC, id DESC
+                """,
+                (user_id, status),
             ).fetchall()
         else:
             rows = connection.execute(
-                "SELECT * FROM applications ORDER BY updated_at DESC, id DESC"
+                """
+                SELECT * FROM applications
+                WHERE user_id = ?
+                ORDER BY updated_at DESC, id DESC
+                """,
+                (user_id,),
             ).fetchall()
     return [_row_to_dict(row) for row in rows]
 
 
-def update_application(application_id: int, data: dict) -> dict | None:
+def update_application(user_id: int, application_id: int, data: dict) -> dict | None:
     with get_connection() as connection:
         existing = connection.execute(
-            "SELECT id FROM applications WHERE id = ?", (application_id,)
+            "SELECT id FROM applications WHERE id = ? AND user_id = ?",
+            (application_id, user_id),
         ).fetchone()
         if existing is None:
             return None
@@ -100,7 +116,7 @@ def update_application(application_id: int, data: dict) -> dict | None:
             UPDATE applications
             SET updated_at = ?, company = ?, role = ?, status = ?,
                 applied_date = ?, job_link = ?, notes = ?, analysis_id = ?
-            WHERE id = ?
+            WHERE id = ? AND user_id = ?
             """,
             (
                 _now(),
@@ -112,6 +128,7 @@ def update_application(application_id: int, data: dict) -> dict | None:
                 data["notes"],
                 data["analysis_id"],
                 application_id,
+                user_id,
             ),
         )
         row = connection.execute(
@@ -120,20 +137,25 @@ def update_application(application_id: int, data: dict) -> dict | None:
         return _row_to_dict(row)
 
 
-def delete_application(application_id: int) -> bool:
+def delete_application(user_id: int, application_id: int) -> bool:
     with get_connection() as connection:
         cursor = connection.execute(
-            "DELETE FROM applications WHERE id = ?", (application_id,)
+            "DELETE FROM applications WHERE id = ? AND user_id = ?",
+            (application_id, user_id),
         )
         return cursor.rowcount > 0
 
 
-def get_application_stats() -> dict:
+def get_application_stats(user_id: int) -> dict:
     counts = {status: 0 for status in STATUSES}
 
     with get_connection() as connection:
         rows = connection.execute(
-            "SELECT status, COUNT(*) AS total FROM applications GROUP BY status"
+            """
+            SELECT status, COUNT(*) AS total FROM applications
+            WHERE user_id = ? GROUP BY status
+            """,
+            (user_id,),
         ).fetchall()
 
     for row in rows:
