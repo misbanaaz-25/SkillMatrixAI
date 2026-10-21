@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 
 import { analyzeMatch, getAiFeedback, downloadReport } from "../api";
 import { ScoreRing } from "../components/SkillConstellation";
-import ChatBox from "../components/ChatBox";
+import { useAnalysis } from "../context/AnalysisContext";
 
 const SAMPLE_JOB_DESCRIPTION =
   "We are looking for a Python Developer with experience in FastAPI, SQL, Git, REST APIs and testing. Knowledge of Docker and AWS is a plus.";
@@ -31,6 +31,7 @@ function Analyzer() {
   const [reportError, setReportError] = useState("");
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef(null);
+  const { setAnalysisId,notify } = useAnalysis();
 
   const pickFile = (candidate) => {
     if (!candidate) return;
@@ -47,6 +48,7 @@ function Analyzer() {
 
     setError("");
     setFile(candidate);
+     notify("Resume mil gaya ✅ Ab job description paste karke Analyze dabao.");
   };
 
   const canAnalyze =
@@ -63,6 +65,8 @@ function Analyzer() {
       const data = await analyzeMatch(file, jobDescription);
       setResult(data);
       setAnalyzedInput({ file, jobDescription });
+      setAnalysisId(data.id ?? null);
+            notify("Analysis ready! 🎯 you can ask about your skills.");
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -74,6 +78,7 @@ function Analyzer() {
     if (!analyzedInput) return;
 
     setAi({ status: "loading", data: null, error: "" });
+          notify("AI feedback ready ✨ ");
 
     try {
       const data = await getAiFeedback(analyzedInput.file, analyzedInput.jobDescription);
@@ -420,7 +425,6 @@ function Results({ result, ai, onGetFeedback, onDownload, downloading, reportErr
       </div>
 
       <AiFeedbackPanel ai={ai} onGetFeedback={onGetFeedback} />
-      {result.id && <ChatBox key={result.id} analysisId={result.id} />}
 
       {result.roadmap.length > 0 && (
         <div className="panel">

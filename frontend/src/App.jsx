@@ -1,6 +1,8 @@
 import { useState } from "react";
 
+import CareerBuddy from "./components/CareerBuddy";
 import Navbar from "./components/Navbar";
+import { AnalysisProvider } from "./context/AnalysisContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Analyzer from "./pages/Analyzer";
 import Auth from "./pages/Auth";
@@ -22,6 +24,7 @@ function AppContent() {
   // logged-out users can't open pages that show personal data
   const needsLogin = LOGIN_REQUIRED.includes(view) && !isLoggedIn;
   const activeView = needsLogin ? "login" : view;
+  const isAuthPage = activeView === "login" || activeView === "signup";
 
   return (
     <>
@@ -31,7 +34,7 @@ function AppContent() {
       {activeView === "analyzer" && <Analyzer />}
       {activeView === "dashboard" && <Dashboard onAnalyze={() => goTo("analyzer")} />}
       {activeView === "tracker" && <Tracker />}
-      {(activeView === "login" || activeView === "signup") && !checking && (
+      {isAuthPage && !checking && (
         <Auth
           key={activeView}
           mode={activeView}
@@ -46,6 +49,8 @@ function AppContent() {
           <p>Match scores are estimates, not a guarantee of selection.</p>
         </div>
       </footer>
+
+      {!isAuthPage && <CareerBuddy onAnalyze={() => goTo("analyzer")} />}
     </>
   );
 }
@@ -53,7 +58,9 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <AnalysisProvider>
+        <AppContent />
+      </AnalysisProvider>
     </AuthProvider>
   );
 }
