@@ -61,8 +61,12 @@ app = FastAPI(
     version="0.5.0",
 )
 
+# the live frontend address(es), comma separated, no trailing slash
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
+
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=[origin.strip() for origin in FRONTEND_URL.split(",") if origin.strip()],
     allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_methods=["*"],
     allow_headers=["*"],
@@ -70,6 +74,7 @@ app.add_middleware(
 
 init_db()
 init_users_db()
+init_applications_db()
 
 
 async def read_resume(file: UploadFile) -> tuple[str, str]:
@@ -253,7 +258,7 @@ async def ai_chat(request: ChatRequest, user: dict | None = Depends(get_optional
         )
 
     return {"reply": reply}
-init_applications_db()
+
 
 
 class ApplicationIn(BaseModel):

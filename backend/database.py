@@ -1,18 +1,30 @@
 import json
-import sqlite3
+import os
 from collections import Counter
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent / "data" / "skillmatrix.db"
+import psycopg
+from dotenv import load_dotenv
+from psycopg.rows import dict_row
+
+# locally the URL comes from backend/.env, on the server from the host's settings
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
 JOB_PREVIEW_LENGTH = 300
+
+
+def _database_url() -> str:
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        raise RuntimeError("DATABASE_URL is not set. Add it to backend/.env.")
+    return url
 
 
 @contextmanager
 def get_connection():
-    connection = sqlite3.connect(DB_PATH)
-    connection.row_factory = sqlite3.Row
+    connection = psycopg.connect(_database_url(), row_factory=dict_row)
     try:
         yield connection
         connection.commit()
@@ -25,27 +37,23 @@ def init_db() -> None:
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS analyses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 created_at TEXT NOT NULL,
                 filename TEXT NOT NULL,
                 job_preview TEXT NOT NULL,
-                match_score REAL NOT NULL,
-                skill_match_score REAL,
-                text_similarity_score REAL NOT NULL,
+                match_score DOUBLE PRECISION NOT NULL,
+                skill_match_score DOUBLE PRECISION,
+                text_similarity_score DOUBLE PRECISION NOT NULL,
                 matched_skills TEXT NOT NULL,
                 missing_skills TEXT NOT NULL,
-                extra_skills TEXT NOT NULL
+                extra_skills TEXT NOT NULL,
+                user_id INTEGER
             )
             """
         )
 
-        # older databases do not have user_id yet, so add it once
-        columns = [row["name"] for row in connection.execute("PRAGMA table_info(analyses)")]
-        if "user_id" not in columns:
-            connection.execute("ALTER TABLE analyses ADD COLUMN user_id INTEGER")
 
-
-def _row_to_dict(row: sqlite3.Row) -> dict:
+def _row_to_dict(row: dict) -> dict:
     return {
         "id": row["id"],
         "user_id": row["user_id"],
@@ -73,7 +81,8 @@ def save_analysis(
             INSERT INTO analyses (
                 created_at, filename, job_preview, match_score, skill_match_score,
                 text_similarity_score, matched_skills, missing_skills, extra_skills, user_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
             """,
             (
                 created_at,
@@ -88,13 +97,13 @@ def save_analysis(
                 user_id,
             ),
         )
-        return cursor.lastrowid
+        return cursor.fetchone()["id"]
 
 
 def list_analyses(user_id: int, limit: int = 50) -> list[dict]:
     with get_connection() as connection:
         rows = connection.execute(
-            "SELECT * FROM analyses WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+            "SELECT * FROM analyses WHERE user_id = %s ORDER BY id DESC LIMIT %s",
             (user_id, limit),
         ).fetchall()
     return [_row_to_dict(row) for row in rows]
@@ -103,7 +112,7 @@ def list_analyses(user_id: int, limit: int = 50) -> list[dict]:
 def get_analysis(analysis_id: int) -> dict | None:
     with get_connection() as connection:
         row = connection.execute(
-            "SELECT * FROM analyses WHERE id = ?", (analysis_id,)
+            "SELECT * FROM analyses WHERE id = %s", (analysis_id,)
         ).fetchone()
     return _row_to_dict(row) if row else None
 
@@ -111,7 +120,7 @@ def get_analysis(analysis_id: int) -> dict | None:
 def delete_analysis(analysis_id: int, user_id: int) -> bool:
     with get_connection() as connection:
         cursor = connection.execute(
-            "DELETE FROM analyses WHERE id = ? AND user_id = ?", (analysis_id, user_id)
+            "DELETE FROM analyses WHERE id = %s AND user_id = %s", (analysis_id, user_id)
         )
         return cursor.rowcount > 0
 
@@ -119,7 +128,7 @@ def delete_analysis(analysis_id: int, user_id: int) -> bool:
 def get_stats(user_id: int) -> dict:
     with get_connection() as connection:
         rows = connection.execute(
-            "SELECT * FROM analyses WHERE user_id = ? ORDER BY id ASC", (user_id,)
+            "SELECT * FROM analyses WHERE user_id = %s ORDER BY id ASC", (user_id,)
         ).fetchall()
 
     analyses = [_row_to_dict(row) for row in rows]

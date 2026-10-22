@@ -7,7 +7,8 @@ scikit-learn
 numpy
 pandas
 openai
-report.py
+reportlab
 bcrypt
 pyjwt
-pyhton-dotenv
+python-dotenv
+psycopg[binary]

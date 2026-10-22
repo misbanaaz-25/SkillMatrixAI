@@ -78,7 +78,7 @@ function Analyzer() {
     if (!analyzedInput) return;
 
     setAi({ status: "loading", data: null, error: "" });
-          notify("AI feedback ready ✨ ");
+          notify("AI feedback is ready ✨ ");
 
     try {
       const data = await getAiFeedback(analyzedInput.file, analyzedInput.jobDescription);

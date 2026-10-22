@@ -1,5 +1,6 @@
-import sqlite3
 from datetime import datetime, timezone
+
+from psycopg.errors import UniqueViolation
 
 from backend.database import get_connection
 
@@ -9,7 +10,7 @@ def init_users_db() -> None:
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 created_at TEXT NOT NULL,
                 name TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
@@ -38,11 +39,12 @@ def create_user(name: str, email: str, password_hash: str) -> dict | None:
     try:
         with get_connection() as connection:
             cursor = connection.execute(
-                "INSERT INTO users (created_at, name, email, password_hash) VALUES (?, ?, ?, ?)",
+                "INSERT INTO users (created_at, name, email, password_hash) "
+                "VALUES (%s, %s, %s, %s) RETURNING id",
                 (created_at, name, email, password_hash),
             )
-            user_id = cursor.lastrowid
-    except sqlite3.IntegrityError:
+            user_id = cursor.fetchone()["id"]
+    except UniqueViolation:
         return None
 
     return get_user_by_id(user_id)
@@ -51,11 +53,11 @@ def create_user(name: str, email: str, password_hash: str) -> dict | None:
 def find_user_by_email(email: str) -> dict | None:
     """Includes password_hash. Only use this for login checks."""
     with get_connection() as connection:
-        row = connection.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        row = connection.execute("SELECT * FROM users WHERE email = %s", (email,)).fetchone()
     return dict(row) if row else None
 
 
 def get_user_by_id(user_id: int) -> dict | None:
     with get_connection() as connection:
-        row = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = connection.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
     return dict(row) if row else None
